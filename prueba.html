@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>React Logo Simulation | CSS + Canvas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none; /* Evita selección de texto en el logo */
+        }
+
+        body {
+            background: linear-gradient(145deg, #0a1a1f 0%, #0b2b2f 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+            padding: 20px;
+        }
+
+        /* Contenedor principal con efecto de tarjeta */
+        .card {
+            background: rgba(10, 25, 30, 0.65);
+            backdrop-filter: blur(8px);
+            border-radius: 4rem;
+            padding: 2rem 2rem 2rem 2rem;
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255,255,255,0.1);
+            border: 1px solid rgba(97, 218, 251, 0.25);
+            transition: all 0.2s ease;
+        }
+
+        /* Canvas principal donde dibujamos el logo estilo React */
+        canvas {
+            display: block;
+            margin: 0 auto;
+            filter: drop-shadow(0 12px 18px rgba(0,0,0,0.3));
+            transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+        }
+        
+        canvas:hover {
+            transform: scale(1.01);
+        }
+
+        /* Texto inspiracional */
+        .caption {
+            text-align: center;
+            margin-top: 1.8rem;
+            color: #b0e4ff;
+            font-weight: 500;
+            letter-spacing: 1px;
+        }
+
+        .caption h2 {
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, #61dafb, #a3e4ff);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+        }
+
+        .caption p {
+            font-size: 0.85rem;
+            opacity: 0.8;
+            font-family: monospace;
+        }
+
+        .badge {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 1rem;
+            font-size: 0.7rem;
+            color: #4ea5c9;
+        }
+
+        .badge span {
+            background: #0e2a30;
+            padding: 0.2rem 0.8rem;
+            border-radius: 30px;
+            border-left: 2px solid #61dafb;
+        }
+
+        /* controles opcionales para giro (pequeño botón sutil) */
+        .toggle-spin {
+            text-align: center;
+            margin-top: 1.2rem;
+        }
+        
+        .spin-btn {
+            background: none;
+            border: 1px solid #61dafb60;
+            color: #8dcbe8;
+            padding: 0.3rem 1rem;
+            border-radius: 60px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: 0.2s;
+            backdrop-filter: blur(4px);
+            font-weight: 500;
+        }
+        
+        .spin-btn:hover {
+            background: #61dafb20;
+            border-color: #61dafb;
+            color: #c2edff;
+            box-shadow: 0 0 6px #61dafb40;
+        }
+
+        /* Pie responsive */
+        @media (max-width: 550px) {
+            .card {
+                padding: 1.2rem;
+            }
+            .caption h2 {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <canvas id="reactLogoCanvas" width="400" height="400" style="width:400px; height:400px;"></canvas>
+    <div class="caption">
+        <h2>⚛️ React Logo Simulación</h2>
+        <p>Electrones giratorios · Núcleo atómico · Inspirado en el diseño oficial</p>
+    </div>
+    <div class="badge">
+        <span>🌀 3 órbitas elípticas</span>
+        <span>⚛️ núcleo + electrones</span>
+        <span>🎨 CSS + Canvas</span>
+    </div>
+    <div class="toggle-spin">
+        <button class="spin-btn" id="spinToggleBtn">⏵ Pausar rotación</button>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // --- Configuración del logo React (simulación estilizada) ---
+        const canvas = document.getElementById('reactLogoCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Dimensiones reales del canvas (400x400)
+        const size = 400;
+        const centerX = size / 2;
+        const centerY = size / 2;
+        
+        // Radio base de las órbitas (elipses)
+        const orbitRadiusX = 140;   // semieje mayor
+        const orbitRadiusY = 52;    // semieje menor -> genera efecto de perspectiva
+        
+        // Núcleo del átomo
+        const nucleusRadius = 26;
+        
+        // Radio de los electrones (puntos o pequeñas esferas)
+        const electronRadius = 8;
+        
+        // Colores oficiales de React y matices
+        const colors = {
+            orbit: '#61dafb',        // azul react principal
+            orbitGlow: '#88e4ff',
+            nucleus: '#61dafbcc',
+            nucleusCore: '#7ee8ff',
+            electron: '#ffffff',
+            electronGlow: '#b3f0ff',
+            bgInside: 'rgba(10, 25, 30, 0)'
+        };
+        
+        // Animación: tres electrones girando sobre tres órbitas distintas
+        // Cada órbita tiene su propia velocidad angular y fase inicial.
+        // Representación: cada órbita es una elipse rotada 0°, 60° y -60° (o 120°).
+        // Para simular el logo real: tres elipses con inclinaciones 0, 60 y -60 grados.
+        
+        // Definimos los ángulos de rotación para cada elipse (en radianes)
+        const orbitAngles = [0, Math.PI / 3, -Math.PI / 3];  // 0°, 60°, -60°
+        
+        // Velocidades angulares de los electrones sobre cada órbita (rad por frame)
+        // Diferentes velocidades para efecto más dinámico, pero armónico
+        const speeds = [0.018, -0.022, 0.015];  // positivo = antihorario, negativo = horario
+        
+        // Fases iniciales para dar sensación natural
+        let phases = [0, 2.1, 3.8];  // offset iniciales
+        
+        // Control de animación
+        let animationId = null;
+        let isSpinning = true;
+        
+        // Botón pausar / reanudar
+        const toggleBtn = document.getElementById('spinToggleBtn');
+        
+        // --- Funciones auxiliares de dibujo ---
+        
+        // Dibujar una elipse rotada alrededor del centro (x0, y0)
+        // rx: radio x, ry: radio y, rotacion: ángulo de rotación de la elipse en radianes
+        function drawRotatedEllipse(ctx, x0, y0, rx, ry, rotation, lineWidth = 2.5, strokeStyle = colors.orbit, glow = true) {
+            ctx.save();
+            ctx.translate(x0, y0);
+            ctx.rotate(rotation);
+            ctx.beginPath();
+            ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = strokeStyle;
+            ctx.lineWidth = lineWidth;
+            if (glow) {
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = colors.orbitGlow;
+            } else {
+                ctx.shadowBlur = 0;
+            }
+            ctx.stroke();
+            // restaurar sombra para no afectar otros elementos
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+        
+        // Dibujar un electrón (círculo con gradiente radial) en coordenadas globales
+        function drawElectron(ctx, x, y, radius) {
+            ctx.save();
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = colors.electronGlow;
+            const grad = ctx.createRadialGradient(x - 3, y - 3, 2, x, y, radius);
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.6, '#c2f0ff');
+            grad.addColorStop(1, '#61dafb');
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fillStyle = grad;
+            ctx.fill();
+            // pequeño brillo central
+            ctx.beginPath();
+            ctx.arc(x - 1.5, y - 1.5, radius * 0.3, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,255,250,0.9)';
+            ctx.fill();
+            ctx.restore();
+        }
+        
+        // Dibujar núcleo atómico con estilo neón / gradiente
+        function drawNucleus(ctx, cx, cy, radius) {
+            ctx.save();
+            ctx.shadowBlur = 14;
+            ctx.shadowColor = '#61dafb';
+            // gradiente radial interior
+            const grad = ctx.createRadialGradient(cx - 8, cy - 8, 5, cx, cy, radius + 4);
+            grad.addColorStop(0, '#e0f6ff');
+            grad.addColorStop(0.4, '#61dafb');
+            grad.addColorStop(1, '#2c93b0');
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.fillStyle = grad;
+            ctx.fill();
+            // añadir detalle: pequeño anillo interno
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
+            ctx.fillStyle = '#b3ebff30';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius * 0.3, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffffcc';
+            ctx.fill();
+            ctx.restore();
+            
+            // pequeño destello de luz
+            ctx.save();
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.arc(cx - 4, cy - 4, radius * 0.18, 0, Math.PI * 2);
+            ctx.fillStyle = 'white';
+            ctx.fill();
+            ctx.restore();
+        }
+        
+        // Función para obtener la posición en elipse rotada (dado un ángulo paramétrico t en radianes)
+        // para una elipse con centro (0,0) semiejes rx, ry y rotación global 'rot'.
+        // Retorna punto {x, y} en coordenadas globales del canvas.
+        function getPointOnRotatedEllipse(cx, cy, rx, ry, rotEllipse, t) {
+            // coordenadas locales de la elipse sin rotar: (rx * cos(t), ry * sin(t))
+            const localX = rx * Math.cos(t);
+            const localY = ry * Math.sin(t);
+            // aplicar rotación de la elipse
+            const cosRot = Math.cos(rotEllipse);
+            const sinRot = Math.sin(rotEllipse);
+            const rotatedX = localX * cosRot - localY * sinRot;
+            const rotatedY = localX * sinRot + localY * cosRot;
+            return {
+                x: cx + rotatedX,
+                y: cy + rotatedY
+            };
+        }
+        
+        // Datos de cada órbita: ángulo de rotación de la elipse, velocidad angular del electrón, fase actual
+        // Usamos tres órbitas con sus propios electrones.
+        let electronParams = [
+            { orbitRot: orbitAngles[0], speed: speeds[0], phase: phases[0], rx: orbitRadiusX, ry: orbitRadiusY },
+            { orbitRot: orbitAngles[1], speed: speeds[1], phase: phases[1], rx: orbitRadiusX, ry: orbitRadiusY },
+            { orbitRot: orbitAngles[2], speed: speeds[2], phase: phases[2], rx: orbitRadiusX, ry: orbitRadiusY }
+        ];
+        
+        // Para un efecto extra moderno: añadir pequeñas partículas alrededor del núcleo (opcional)
+        // Simulamos puntos de energía flotantes pero sin recargar la visual.
+        let starPoints = [];
+        const STAR_COUNT = 32;
+        for (let i = 0; i < STAR_COUNT; i++) {
+            starPoints.push({
+                angle: Math.random() * Math.PI * 2,
+                rad: 12 + Math.random() * 18,
+                speedRot: 0.002 + Math.random() * 0.006,
+                size: 1 + Math.random() * 2.5
+            });
+        }
+        
+        // Actualizar fases si la animación está activa
+        function updatePhases() {
+            if (!isSpinning) return;
+            for (let i = 0; i < electronParams.length; i++) {
+                electronParams[i].phase += electronParams[i].speed;
+                // mantener fase en rango (opcional)
+                if (electronParams[i].phase > Math.PI * 2) electronParams[i].phase -= Math.PI * 2;
+                if (electronParams[i].phase < 0) electronParams[i].phase += Math.PI * 2;
+            }
+            // también actualizar partículas de energía
+            for (let p of starPoints) {
+                p.angle += p.speedRot;
+                if (p.angle > Math.PI * 2) p.angle -= Math.PI * 2;
+            }
+        }
+        
+        // Dibujar partículas dinámicas tipo "campo cuántico" sutil
+        function drawEnergyParticles(ctx, cx, cy) {
+            for (let p of starPoints) {
+                const x = cx + Math.cos(p.angle) * p.rad;
+                const y = cy + Math.sin(p.angle) * p.rad;
+                ctx.beginPath();
+                ctx.arc(x, y, p.size * 0.7, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(97, 218, 251, ${0.3 + Math.sin(Date.now() * 0.003 + p.angle) * 0.15})`;
+                ctx.fill();
+                // tiny glow
+                ctx.shadowBlur = 4;
+                ctx.shadowColor = '#61dafb';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+        
+        // dibujar un sutil anillo de ondas alrededor del núcleo (efecto moderno)
+        let pulseValue = 0;
+        function drawPulseRing(ctx, cx, cy, time) {
+            const pulse = (Math.sin(time * 0.008) + 1) / 2; // 0..1
+            const ringRadius = nucleusRadius + 6 + pulse * 5;
+            ctx.beginPath();
+            ctx.arc(cx, cy, ringRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(97, 218, 251, ${0.25 + pulse * 0.2})`;
+            ctx.lineWidth = 1.8;
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(cx, cy, ringRadius - 2, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(151, 226, 255, 0.2)`;
+            ctx.stroke();
+        }
+        
+        // Función principal de dibujo
+        let lastTimestamp = 0;
+        function drawFrame(now) {
+            // Limpiar canvas con transparencia total, pero fondo oscuro elegante en canvas?
+            ctx.clearRect(0, 0, size, size);
+            
+            // Fondo interno del canvas: difuminado sutil para destacar las órbitas
+            // Dejamos que el fondo real dependa del body, pero añadimos un leve degrade radial oscuro para profundidad
+            const gradBg = ctx.createRadialGradient(centerX, centerY, 30, centerX, centerY, 190);
+            gradBg.addColorStop(0, '#0b2328');
+            gradBg.addColorStop(1, '#051216');
+            ctx.fillStyle = gradBg;
+            ctx.fillRect(0, 0, size, size);
+            
+            // ---- Dibujar órbitas (elipses) con efecto neón ----
+            // Para mayor realismo, dibujar cada elipse con brillo y ligero desenfoque.
+            for (let i = 0; i < electronParams.length; i++) {
+                const param = electronParams[i];
+                // variar el grosor de linea sutilmente
+                let lineWidth = 2.2;
+                // primera órbita más resaltada? todas iguales
+                drawRotatedEllipse(ctx, centerX, centerY, param.rx, param.ry, param.orbitRot, lineWidth, colors.orbit, true);
+                // Agregar una segunda línea más tenue para efecto 'orbital glow'
+                ctx.save();
+                ctx.globalAlpha = 0.4;
+                drawRotatedEllipse(ctx, centerX, centerY, param.rx + 1.5, param.ry + 1, param.orbitRot, 1.2, '#a3e9ff', false);
+                ctx.restore();
+            }
+            
+            // --- Dibujar electrones en cada órbita ---
+            for (let i = 0; i < electronParams.length; i++) {
+                const param = electronParams[i];
+                const t = param.phase;  // ángulo paramétrico del electrón sobre la elipse (tiempo)
+                const pos = getPointOnRotatedEllipse(centerX, centerY, param.rx, param.ry, param.orbitRot, t);
+                // efecto de tamaño de electrón según profundidad (simular 3D leve) -> distancia al centro?
+                const distToCenter = Math.hypot(pos.x - centerX, pos.y - centerY);
+                const scaleFactor = 0.85 + (distToCenter / 180) * 0.3;
+                const finalRadius = Math.max(5, electronRadius * Math.min(1.1, scaleFactor));
+                drawElectron(ctx, pos.x, pos.y, finalRadius);
+            }
+            
+            // --- Núcleo central (efecto atómico) ---
+            drawNucleus(ctx, centerX, centerY, nucleusRadius);
+            
+            // --- Partículas de energía (estilo moderno) ---
+            drawEnergyParticles(ctx, centerX, centerY);
+            
+            // --- Anillo pulsante dinámico ---
+            drawPulseRing(ctx, centerX, centerY, performance.now());
+            
+            // --- Detalle adicional: reflejos diminutos que orbitan el núcleo ---
+            ctx.save();
+            ctx.globalAlpha = 0.6;
+            for (let i = 0; i < 6; i++) {
+                const angle = (Date.now() * 0.003 + i * Math.PI * 2 / 6) % (Math.PI * 2);
+                const rad = nucleusRadius + 4;
+                const x = centerX + Math.cos(angle) * rad;
+                const y = centerY + Math.sin(angle) * rad;
+                ctx.beginPath();
+                ctx.arc(x, y, 1.8, 0, Math.PI * 2);
+                ctx.fillStyle = '#aff0ff';
+                ctx.fill();
+            }
+            ctx.restore();
+            
+            // texto sutil (opcional) "React" simbólico, pero no es necesario, pero añade encanto
+            ctx.font = "bold 12px 'Segoe UI', monospace";
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = "#61dafb80";
+            ctx.fillText("⚛️ react", centerX + 135, centerY + 165);
+        }
+        
+        // Bucle de animación
+        let lastFrameTime = 0;
+        function animate(time) {
+            // actualizar fases según spin
+            updatePhases();
+            // dibujar todo
+            drawFrame(time);
+            // continuar animación
+            animationId = requestAnimationFrame(animate);
+        }
+        
+        // control de pausa: necesitamos poder detener la actualización de fases pero mantener el dibujo.
+        // implementamos un flag isSpinning que afecta updatePhases.
+        // La animación sigue corriendo pero sin avanzar las fases => electrones quietos.
+        // También podemos si se desea pausar completamente la animación, pero mejor mantener el render.
+        // Función para reiniciar o pausar.
+        function toggleSpin() {
+            isSpinning = !isSpinning;
+            if (isSpinning) {
+                toggleBtn.innerHTML = "⏸ Pausar rotación";
+                toggleBtn.style.borderColor = "#61dafb";
+            } else {
+                toggleBtn.innerHTML = "▶ Reanudar rotación";
+                toggleBtn.style.borderColor = "#ffb347";
+            }
+        }
+        
+        // Inicializar eventos y empezar animación
+        toggleBtn.addEventListener('click', toggleSpin);
+        
+        // Ajustar resolución para pantallas retina (mantiene calidad)
+        function setCanvasSize() {
+            const canvasElem = canvas;
+            const displayWidth = 400;
+            const displayHeight = 400;
+            canvasElem.style.width = `${displayWidth}px`;
+            canvasElem.style.height = `${displayHeight}px`;
+            // Asegurar dimensiones de dibujo correctas
+            canvasElem.width = displayWidth;
+            canvasElem.height = displayHeight;
+            // re-dibujar inmediatamente tras redimension
+            drawFrame(performance.now());
+        }
+        
+        window.addEventListener('resize', () => {});
+        setCanvasSize();
+        
+        // Iniciar animación
+        animationId = requestAnimationFrame(animate);
+        
+        // Opcional: limpiar al cerrar (no necesario pero buena práctica)
+        window.addEventListener('beforeunload', () => {
+            if (animationId) cancelAnimationFrame(animationId);
+        });
+        
+        // Ajustar fases iniciales para que no estén sincronizadas
+        // ya lo hicimos con phases personalizadas.
+        
+        // Pequeño detalle: añadir tooltip al canvas
+        canvas.setAttribute('aria-label', 'Logo animado de React: tres órbitas elípticas con electrones girando alrededor de un núcleo atómico');
+    })();
+</script>
+</body>
+</html>
